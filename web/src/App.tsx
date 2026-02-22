@@ -507,16 +507,16 @@ function Toolbar({
 }) {
   const { hint, setHint } = useApp();
   return (
-    <header className="px-4 bg-[#090c14] border-b border-border shrink-0 flex flex-col gap-2 sm:h-14 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
+    <header className="bg-[#090c14] border-b border-border shrink-0 flex items-center p-2 gap-2">
+      <div className="w-[290px] shrink-0 flex items-center gap-3">
         <img src="/logo.png" alt="BBS STUDIO" className="h-8 w-auto object-contain invert brightness-110" />
-        <span className="text-text font-semibold text-sm">Stock Metadata Generator</span>
+        <span className="text-text font-semibold text-sm truncate">Stock Metadata Generator</span>
       </div>
-      <div className="flex items-center gap-2 flex-nowrap overflow-x-auto whitespace-nowrap">
-        <div className="flex items-center rounded-lg border border-border bg-card2 px-3 py-1.5">
-          <span className="text-text3 text-xs mr-2">Referans</span>
-          <input type="text" value={hint} onChange={(e) => setHint(e.target.value)} placeholder="AI'ya ek ipucu..." className="w-48 bg-transparent border-0 text-text text-sm placeholder-text3 outline-none" />
-        </div>
+      <div className="flex items-center rounded-lg border border-border bg-card2 px-3 py-1.5 min-w-0 flex-1 max-w-2xl">
+        <span className="text-text3 text-xs mr-2 shrink-0">Referans</span>
+        <input type="text" value={hint} onChange={(e) => setHint(e.target.value)} placeholder="AI'ya ek ipucu..." className="flex-1 min-w-0 w-0 bg-transparent border-0 text-text text-sm placeholder-text3 outline-none" />
+      </div>
+      <div className="flex items-center gap-2 flex-nowrap overflow-x-auto whitespace-nowrap shrink-0">
         <button type="button" onClick={onGenerate} disabled={generating} className="h-9 px-4 rounded-lg bg-accent hover:bg-accentH text-white font-semibold text-sm disabled:opacity-50">
           {generating ? '⏳ Generating…' : '⚡ Metadata Üret'}
         </button>
