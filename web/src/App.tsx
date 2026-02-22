@@ -60,6 +60,7 @@ const THUMB_W = 244;
 const THUMB_H = 152;
 const SETTINGS_KEY = 'stock_metadata_settings';
 const ISTOCK_KEY = 'stock_metadata_istock';
+const METADATA_KEY = 'stock_metadata_by_file_id';
 
 // ─── Helpers: localStorage ──────────────────────────────────────────────────
 function safeParseJson<T>(s: string, fallback: T): T {
@@ -103,6 +104,15 @@ function loadIStockMap(): IStockMap {
 
 function saveIStockMap(map: IStockMap): void {
   localStorage.setItem(ISTOCK_KEY, JSON.stringify(map));
+}
+
+function loadMetadataByFileId(): Record<string, MetadataRecord> {
+  const s = localStorage.getItem(METADATA_KEY);
+  return s ? safeParseJson<Record<string, MetadataRecord>>(s, {}) : {};
+}
+
+function saveMetadataByFileId(map: Record<string, MetadataRecord>): void {
+  localStorage.setItem(METADATA_KEY, JSON.stringify(map));
 }
 
 function emptyRecord(fileName: string): MetadataRecord {
@@ -400,7 +410,9 @@ const AppContext = createContext<AppState & AppActions | null>(null);
 function AppProvider({ children }: { children: ReactNode }) {
   const [files, setFilesState] = useState<FileEntry[]>([]);
   const [currentFileId, setCurrentFileId] = useState<string | null>(null);
-  const [metadataByFileId, setMetadataByFileId] = useState<Record<string, MetadataRecord>>({});
+  const [metadataByFileId, setMetadataByFileId] = useState<Record<string, MetadataRecord>>(
+    () => (typeof window !== 'undefined' ? loadMetadataByFileId() : {}),
+  );
   const [settings, setSettingsState] = useState<Settings>(loadSettings());
   const [istockMap, setIstockMapState] = useState<IStockMap>(loadIStockMap());
   const [hint, setHint] = useState('');
@@ -422,14 +434,20 @@ function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setMetadata = useCallback((id: string, record: MetadataRecord) => {
-    setMetadataByFileId((prev) => ({ ...prev, [id]: record }));
+    setMetadataByFileId((prev) => {
+      const next = { ...prev, [id]: record };
+      if (typeof window !== 'undefined') saveMetadataByFileId(next);
+      return next;
+    });
   }, []);
 
   const updateMetadata = useCallback((id: string, patch: Partial<MetadataRecord>) => {
     setMetadataByFileId((prev) => {
       const current = prev[id];
       if (!current) return prev;
-      return { ...prev, [id]: { ...current, ...patch } };
+      const next = { ...prev, [id]: { ...current, ...patch } };
+      if (typeof window !== 'undefined') saveMetadataByFileId(next);
+      return next;
     });
   }, []);
 
@@ -451,25 +469,31 @@ function AppProvider({ children }: { children: ReactNode }) {
     downloadCsv(buildCsv(records));
   }, [files, metadataByFileId]);
 
-  const applyFindReplace = useCallback((find: string, replace: string) => {
-    if (!currentFileId || !find.trim()) return;
-    const record = metadataByFileId[currentFileId];
-    if (!record) return;
-    const re = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    const repl = (s: string) => s.replace(re, replace);
-    const arrRepl = (arr: string[]) => (arr ?? []).map(repl);
-    setMetadataByFileId((prev) => ({
-      ...prev,
-      [currentFileId]: {
+  const applyFindReplace = useCallback(
+    (find: string, replace: string) => {
+      if (!currentFileId || !find.trim()) return;
+      const record = metadataByFileId[currentFileId];
+      if (!record) return;
+      const re = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      const repl = (s: string) => s.replace(re, replace);
+      const arrRepl = (arr: string[]) => (arr ?? []).map(repl);
+      const nextRecord: MetadataRecord = {
         ...record,
-        title_en: repl(record.title_en), title_tr: repl(record.title_tr),
-        description_en: repl(record.description_en), description_tr: repl(record.description_tr),
-        adobe_keywords_en: arrRepl(record.adobe_keywords_en), adobe_keywords_tr: arrRepl(record.adobe_keywords_tr),
-        shutter_keywords_en: arrRepl(record.shutter_keywords_en), shutter_keywords_tr: arrRepl(record.shutter_keywords_tr),
-        istock_keywords_en: arrRepl(record.istock_keywords_en), istock_keywords_tr: arrRepl(record.istock_keywords_tr),
-      },
-    }));
-  }, [currentFileId, metadataByFileId]);
+        title_en: repl(record.title_en),
+        title_tr: repl(record.title_tr),
+        description_en: repl(record.description_en),
+        description_tr: repl(record.description_tr),
+        adobe_keywords_en: arrRepl(record.adobe_keywords_en),
+        adobe_keywords_tr: arrRepl(record.adobe_keywords_tr),
+        shutter_keywords_en: arrRepl(record.shutter_keywords_en),
+        shutter_keywords_tr: arrRepl(record.shutter_keywords_tr),
+        istock_keywords_en: arrRepl(record.istock_keywords_en),
+        istock_keywords_tr: arrRepl(record.istock_keywords_tr),
+      };
+      setMetadata(currentFileId, nextRecord);
+    },
+    [currentFileId, metadataByFileId, setMetadata],
+  );
 
   const value = useMemo(
     () => ({
@@ -572,7 +596,7 @@ function Thumbnail({ entry, selected, hasMetadata, onClick }: { entry: FileEntry
   const showImagePlaceholder = !isVideo(entry.file) && !url;
 
   return (
-    <button ref={rootRef} type="button" onClick={onClick} className={`w-full text-left rounded-lg p-1.5 transition-colors ${selected ? 'bg-sel' : 'bg-card hover:bg-hover'}`}>
+    <button ref={rootRef} type="button" onClick={onClick} className={`w-full text-left rounded-lg p-1.5 border-2 transition-colors ${selected ? 'bg-sel border-accent' : 'border-transparent bg-card hover:bg-hover'}`}>
       <div className="rounded overflow-hidden bg-bg flex items-center justify-center" style={{ width: THUMB_W, height: THUMB_H }}>
         {url ? (
           <img src={url} alt="" className="max-w-full max-h-full object-contain" style={{ maxWidth: THUMB_W, maxHeight: THUMB_H }} />
