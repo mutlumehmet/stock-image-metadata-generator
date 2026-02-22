@@ -663,14 +663,67 @@ function Sidebar() {
 function Field({ label, lang, value, onChange, multiline }: { label: string; lang: 'EN' | 'TR'; value: string; onChange: (v: string) => void; multiline?: boolean }) {
   const badgeBg = lang === 'EN' ? '#162a52' : '#0f2c1a';
   const badgeFg = lang === 'EN' ? '#5b9af8' : '#4ade80';
+  const isEn = lang === 'EN';
   return (
-    <div className="rounded-xl border border-border bg-card2 p-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-text2 font-semibold text-sm">{label}</span>
-        <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: badgeBg, color: badgeFg }}>{lang}</span>
-        <button type="button" onClick={() => navigator.clipboard.writeText(value)} className="text-xs text-text2 hover:text-text px-2 py-1 rounded bg-card border border-border">⎘ Copy</button>
-      </div>
-      {multiline ? <textarea value={value} onChange={(e) => onChange(e.target.value)} className="w-full h-20 rounded-lg bg-input border border-border text-text text-sm p-2 resize-none outline-none focus:ring-1 focus:ring-accent" placeholder={label} /> : <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className="w-full h-9 rounded-lg bg-input border border-border text-text text-sm px-3 outline-none focus:ring-1 focus:ring-accent" placeholder={label} />}
+    <div className="rounded-lg border border-[#20263a] bg-card2 p-2">
+      {multiline ? (
+        <div className="flex items-start gap-2">
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 h-20 rounded-lg bg-input border border-border text-text text-sm p-2 resize-none outline-none focus:ring-1 focus:ring-accent"
+            placeholder={label}
+          />
+          <div className="flex flex-col gap-1 items-end shrink-0">
+            {isEn ? (
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(value)}
+                className="text-xs font-bold px-1.5 py-0.5 rounded flex items-center gap-1 hover:brightness-110"
+                style={{ backgroundColor: badgeBg, color: badgeFg }}
+              >
+                <span>EN</span>
+                <span className="text-[10px]">⎘</span>
+              </button>
+            ) : (
+              <span
+                className="text-xs font-bold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: badgeBg, color: badgeFg }}
+              >
+                {lang}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 h-9 rounded-lg bg-input border border-border text-text text-sm px-3 outline-none focus:ring-1 focus:ring-accent"
+            placeholder={label}
+          />
+          {isEn ? (
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(value)}
+              className="text-xs font-bold px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1 hover:brightness-110"
+              style={{ backgroundColor: badgeBg, color: badgeFg }}
+            >
+              <span>EN</span>
+              <span className="text-[10px]">⎘</span>
+            </button>
+          ) : (
+            <span
+              className="text-xs font-bold px-1.5 py-0.5 rounded shrink-0"
+              style={{ backgroundColor: badgeBg, color: badgeFg }}
+            >
+              {lang}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -701,11 +754,6 @@ function KeywordList({ platform, maxKw, record, onUpdate }: { platform: KeywordK
   const setOne = (index: number, value: string) => { const next = [...list]; next[index] = value; onUpdate(next); };
   return (
     <div className="flex flex-col min-h-0">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-text2 font-semibold text-sm">Keywords</span>
-        <span className="text-text3 text-xs">max {maxKw}</span>
-        <button type="button" onClick={() => navigator.clipboard.writeText(list.filter(Boolean).join(', '))} className="text-xs text-text2 hover:text-text px-2 py-1 rounded bg-card2 border border-border">⎘ Copy</button>
-      </div>
       <div className="flex-1 overflow-y-auto rounded-lg bg-input border border-border p-2 space-y-0.5 min-h-[120px]">
         {list.slice(0, maxKw).map((kw, i) => (
           <div key={i} className="flex items-center gap-1">
@@ -738,12 +786,36 @@ function KeywordTabs() {
   if (!record) return null;
   const tab = TABS.find((t) => t.id === activeTab)!;
   const keys = KEY_MAP[activeTab];
+  const enKeywords = ((record[keys.en] as string[]) ?? []).filter(Boolean);
+  const handleCopyEn = () => {
+    if (!enKeywords.length) return;
+    navigator.clipboard.writeText(enKeywords.join(', '));
+  };
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <div className="flex gap-1 mb-2 rounded-lg bg-card2 border border-border p-1.5">
-        {TABS.map((t) => (
-          <button key={t.id} type="button" onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === t.id ? 'bg-accent text-white' : 'bg-transparent text-text2 hover:bg-hover'}`}>{t.label}</button>
-        ))}
+      <div className="flex items-center mb-1">
+        <div className="flex gap-1 rounded-lg bg-card2 border border-border px-1 py-0.5">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id)}
+              className={`px-2.5 py-1 rounded-lg text-sm font-medium ${
+                activeTab === t.id ? 'bg-accent text-white' : 'bg-transparent text-text2 hover:bg-hover'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={handleCopyEn}
+          className="ml-2 px-3 py-1 rounded-md bg-card2 border border-border text-xs text-text2 hover:text-text"
+        >
+          EN ⎘
+        </button>
+        <span className="ml-auto text-xs text-text3">max {tab.maxKw}</span>
       </div>
       <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
         <KeywordList platform={keys.en} maxKw={tab.maxKw} record={record} onUpdate={(kw) => updateMetadata(currentFileId, { [keys.en]: kw })} />
