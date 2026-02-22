@@ -796,7 +796,7 @@ function IStockModal({ open, onClose }: { open: boolean; onClose: () => void }) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div className="bg-card rounded-xl border border-border p-6 w-[640px] max-w-[90vw] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-text font-bold text-lg mb-2">iStock Keyword Eşleştirme</h2>
+        <h2 className="text-text font-bold text-lg mb-2">iStock Keyword Eşleştirmesi</h2>
         <div className="flex gap-2 mb-4 p-3 rounded-lg bg-card2 border border-border">
           <input type="text" value={generic} onChange={(e) => setGeneric(e.target.value)} placeholder="Generic word" className="flex-1 h-9 rounded-lg bg-input border border-border text-text text-sm px-3 outline-none" />
           <span className="text-text2 self-center">→</span>
