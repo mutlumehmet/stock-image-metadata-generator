@@ -505,9 +505,9 @@ function Toolbar({
 }) {
   const { hint, setHint } = useApp();
   return (
-    <header className="h-14 flex items-center justify-between px-4 bg-[#090c14] border-b border-border shrink-0">
+    <header className="px-4 bg-[#090c14] border-b border-border shrink-0 flex flex-col gap-2 sm:h-14 sm:flex-row sm:items-center sm:justify-between">
       <span className="text-text font-semibold text-sm">◈ Stock Metadata Generator</span>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-nowrap overflow-x-auto whitespace-nowrap">
         <div className="flex items-center rounded-lg border border-border bg-card2 px-3 py-1.5">
           <span className="text-text3 text-xs mr-2">Referans</span>
           <input type="text" value={hint} onChange={(e) => setHint(e.target.value)} placeholder="AI'ya ek ipucu..." className="w-48 bg-transparent border-0 text-text text-sm placeholder-text3 outline-none" />
