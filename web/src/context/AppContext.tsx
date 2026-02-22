@@ -14,15 +14,36 @@ import { buildCsv, downloadCsv } from '../lib/csv';
 const SETTINGS_KEY = 'stock_metadata_settings';
 const ISTOCK_KEY = 'stock_metadata_istock';
 
-function loadSettings(): Settings {
+/** Parse JSON, or use first complete object if string has trailing content. */
+function safeParseJson<T>(s: string, fallback: T): T {
   try {
-    const s = localStorage.getItem(SETTINGS_KEY);
-    if (s) {
-      const parsed = JSON.parse(s) as Partial<Settings>;
-      return { ...DEFAULT_SETTINGS, ...parsed };
+    return JSON.parse(s) as T;
+  } catch {
+    const start = s.indexOf('{');
+    if (start === -1) return fallback;
+    let depth = 0;
+    for (let i = start; i < s.length; i++) {
+      if (s[i] === '{') depth++;
+      else if (s[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          try {
+            return JSON.parse(s.slice(start, i + 1)) as T;
+          } catch {
+            return fallback;
+          }
+        }
+      }
     }
-  } catch {}
-  return { ...DEFAULT_SETTINGS };
+  }
+  return fallback;
+}
+
+function loadSettings(): Settings {
+  const s = localStorage.getItem(SETTINGS_KEY);
+  if (!s) return { ...DEFAULT_SETTINGS };
+  const parsed = safeParseJson<Partial<Settings>>(s, {});
+  return { ...DEFAULT_SETTINGS, ...parsed };
 }
 
 function saveSettings(settings: Settings): void {
@@ -30,11 +51,9 @@ function saveSettings(settings: Settings): void {
 }
 
 function loadIStockMap(): IStockMap {
-  try {
-    const s = localStorage.getItem(ISTOCK_KEY);
-    if (s) return JSON.parse(s) as IStockMap;
-  } catch {}
-  return {};
+  const s = localStorage.getItem(ISTOCK_KEY);
+  if (!s) return {};
+  return safeParseJson<IStockMap>(s, {});
 }
 
 function saveIStockMap(map: IStockMap): void {

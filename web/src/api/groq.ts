@@ -73,6 +73,22 @@ Rules:
 - description: 150-200 chars, descriptive, includes mood/setting/use-case
 - Both Turkish and English must be natural, not literal translations`;
 
+/** Extract the first complete JSON object from a string (handles trailing text or multiple objects). */
+function extractFirstJsonObject(raw: string): string {
+  const start = raw.indexOf('{');
+  if (start === -1) return '';
+  let depth = 0;
+  for (let i = start; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) return raw.slice(start, i + 1);
+    }
+  }
+  return '';
+}
+
 export async function apiMetadata(
   b64: string,
   key: string,
@@ -81,9 +97,13 @@ export async function apiMetadata(
   const hintTxt = hint.trim() ? `\n\nEk referans bilgi (mutlaka dikkate al): ${hint}` : '';
   const prompt = METADATA_PROMPT + hintTxt;
   const raw = await groqVision(b64, prompt, key, 600);
-  const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) throw new Error('Invalid response: no JSON');
-  return JSON.parse(m[0]);
+  const jsonStr = extractFirstJsonObject(raw);
+  if (!jsonStr) throw new Error('Invalid response: no JSON');
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    throw new Error('Invalid response: JSON parse failed');
+  }
 }
 
 const KEYWORDS_BY_PLATFORM: Record<string, string> = {
