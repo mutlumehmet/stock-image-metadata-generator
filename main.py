@@ -252,7 +252,7 @@ class App(ctk.CTk):
             self.after(300, lambda: self._load_folder(self.settings["save_dir"]))
 
     def _on_global_scroll(self, event):
-        """Global scroll handler — imlecin altındaki canvas'ı scroll et (focus değil hover)."""
+        """Global scroll handler — imlecin altındaki canvas'ı scroll et (focus değil hover); fallback event.widget."""
         delta = 0
         if event.delta:
             # macOS trackpad: küçük delta'lar için en az 1 unit
@@ -266,20 +266,40 @@ class App(ctk.CTk):
         if delta == 0:
             return
 
-        # İmlecin altındaki widget'tan başla (focus değil, cursor pozisyonu)
+        def scroll_canvas(canvas):
+            try:
+                canvas.yview_scroll(delta, "units")
+            except tk.TclError:
+                pass
+
+        # 1) İmlecin altındaki widget (toplevel ile daha güvenilir)
         x, y = self.winfo_pointerxy()
-        w = self.winfo_containing(x, y)
+        w = self.winfo_toplevel().winfo_containing(x, y)
         while w:
             if isinstance(w, tk.Canvas):
-                try:
-                    w.yview_scroll(delta, "units")
-                except tk.TclError:
-                    pass
+                scroll_canvas(w)
                 return
             try:
                 w = w.master
             except (AttributeError, KeyError):
                 break
+
+        # 2) Fallback: event'i alan widget'tan yukarı çıkarak canvas bul
+        w = event.widget
+        while w:
+            if isinstance(w, tk.Canvas):
+                scroll_canvas(w)
+                return
+            try:
+                w = w.master
+            except (AttributeError, KeyError):
+                break
+
+        # 3) Son çare: sidebar list_canvas
+        try:
+            self.list_canvas.yview_scroll(delta, "units")
+        except (tk.TclError, AttributeError):
+            pass
 
     def _on_close(self):
         if self.current_file and self.metadata:
