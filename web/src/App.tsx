@@ -14,6 +14,8 @@ import {
   type ReactNode,
 } from 'react';
 
+import { enqueueThumbnail } from './lib/thumbnailQueue';
+
 // ─── Types & constants ─────────────────────────────────────────────────────
 interface FileEntry {
   id: string;
@@ -506,7 +508,10 @@ function Toolbar({
   const { hint, setHint } = useApp();
   return (
     <header className="px-4 bg-[#090c14] border-b border-border shrink-0 flex flex-col gap-2 sm:h-14 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-text font-semibold text-sm">◈ Stock Metadata Generator</span>
+      <div className="flex items-center gap-3">
+        <img src="/logo.png" alt="BBS STUDIO" className="h-8 w-auto object-contain invert brightness-110" />
+        <span className="text-text font-semibold text-sm">Stock Metadata Generator</span>
+      </div>
       <div className="flex items-center gap-2 flex-nowrap overflow-x-auto whitespace-nowrap">
         <div className="flex items-center rounded-lg border border-border bg-card2 px-3 py-1.5">
           <span className="text-text3 text-xs mr-2">Referans</span>
@@ -527,21 +532,58 @@ function Toolbar({
 
 function Thumbnail({ entry, selected, hasMetadata, onClick }: { entry: FileEntry; selected: boolean; hasMetadata: boolean; onClick: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
+  const [isInView, setIsInView] = useState(false);
+  const rootRef = useRef<HTMLButtonElement>(null);
+  const objectUrlRef = useRef<string | null>(null);
+
   useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) setIsInView(true);
+      },
+      { rootMargin: '100px', threshold: 0.01 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isInView) return;
     let revoked = false;
-    let objectUrl: string | null = null;
-    getThumbnailUrl(entry.file)
-      .then((u) => { objectUrl = u; if (!revoked) setUrl(u); })
-      .catch(() => { if (!revoked) setUrl(null); });
+    enqueueThumbnail(() => getThumbnailUrl(entry.file))
+      .then((u) => {
+        objectUrlRef.current = u;
+        if (!revoked) setUrl(u);
+      })
+      .catch(() => {
+        if (!revoked) setUrl(null);
+      });
     return () => {
       revoked = true;
-      if (objectUrl?.startsWith('blob:')) URL.revokeObjectURL(objectUrl);
+      const u = objectUrlRef.current;
+      if (u?.startsWith('blob:')) URL.revokeObjectURL(u);
+      objectUrlRef.current = null;
     };
-  }, [entry.id]);
+  }, [entry.id, entry.file, isInView]);
+
+  const showVideoPlaceholder = isVideo(entry.file) && !url;
+  const showImagePlaceholder = !isVideo(entry.file) && !url;
+
   return (
-    <button type="button" onClick={onClick} className={`w-full text-left rounded-lg p-1.5 transition-colors ${selected ? 'bg-sel' : 'bg-card hover:bg-hover'}`}>
+    <button ref={rootRef} type="button" onClick={onClick} className={`w-full text-left rounded-lg p-1.5 transition-colors ${selected ? 'bg-sel' : 'bg-card hover:bg-hover'}`}>
       <div className="rounded overflow-hidden bg-bg flex items-center justify-center" style={{ width: THUMB_W, height: THUMB_H }}>
-        {url ? <img src={url} alt="" className="max-w-full max-h-full object-contain" style={{ maxWidth: THUMB_W, maxHeight: THUMB_H }} /> : <span className="text-text3 text-2xl">🖼</span>}
+        {url ? (
+          <img src={url} alt="" className="max-w-full max-h-full object-contain" style={{ maxWidth: THUMB_W, maxHeight: THUMB_H }} />
+        ) : showVideoPlaceholder ? (
+          <div className="flex flex-col items-center justify-center gap-1 px-2 py-3 text-center">
+            <span className="text-text3 text-3xl" aria-hidden>🎬</span>
+            <span className="text-text3 text-xs">Önizleme yok</span>
+          </div>
+        ) : showImagePlaceholder ? (
+          <span className="text-text3 text-2xl">🖼</span>
+        ) : null}
       </div>
       <p className="text-text text-xs mt-1 truncate px-1" style={{ maxWidth: THUMB_W + 8 }}>{entry.name.length > 28 ? entry.name.slice(0, 25) + '...' : entry.name}</p>
       {hasMetadata && <div className="h-0.5 bg-green rounded-full mx-1" />}
