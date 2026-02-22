@@ -127,13 +127,49 @@ function isVideo(file: File): boolean {
   return file.type.toLowerCase().startsWith('video/');
 }
 
-function fileToDataUrl(file: File): Promise<string> {
+/** Max dimension for image sent to Groq (avoids 413 Request Entity Too Large). */
+const MAX_API_IMAGE_PX = 768;
+const API_JPEG_QUALITY = 0.78;
+
+/** Resize image or video frame to max dimension, return base64 JPEG for API. */
+function fileToBase64Jpeg(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
+    const finish = (dataUrl: string) => {
+      const base64 = dataUrl.split(',')[1];
+      if (!base64) reject(new Error('Invalid data URL'));
+      else resolve(base64);
+    };
+
     if (isImage(file)) {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result as string);
-      r.onerror = reject;
-      r.readAsDataURL(file);
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > MAX_API_IMAGE_PX || h > MAX_API_IMAGE_PX) {
+          if (w >= h) {
+            h = Math.round((h * MAX_API_IMAGE_PX) / w);
+            w = MAX_API_IMAGE_PX;
+          } else {
+            w = Math.round((w * MAX_API_IMAGE_PX) / h);
+            h = MAX_API_IMAGE_PX;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          finish(canvas.toDataURL('image/jpeg', API_JPEG_QUALITY));
+        } else reject(new Error('Canvas failed'));
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Image load failed'));
+      };
+      img.src = url;
     } else if (isVideo(file)) {
       const video = document.createElement('video');
       const url = URL.createObjectURL(file);
@@ -142,30 +178,29 @@ function fileToDataUrl(file: File): Promise<string> {
       video.preload = 'metadata';
       video.onloadeddata = () => { video.currentTime = 0.1; };
       video.onseeked = () => {
+        let w = video.videoWidth;
+        let h = video.videoHeight;
+        if (w > MAX_API_IMAGE_PX || h > MAX_API_IMAGE_PX) {
+          if (w >= h) {
+            h = Math.round((h * MAX_API_IMAGE_PX) / w);
+            w = MAX_API_IMAGE_PX;
+          } else {
+            w = Math.round((w * MAX_API_IMAGE_PX) / h);
+            h = MAX_API_IMAGE_PX;
+          }
+        }
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(video, 0, 0);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-          URL.revokeObjectURL(url);
-          resolve(dataUrl);
-        } else {
-          URL.revokeObjectURL(url);
-          reject(new Error('Canvas failed'));
-        }
+          ctx.drawImage(video, 0, 0, w, h);
+          finish(canvas.toDataURL('image/jpeg', API_JPEG_QUALITY));
+        } else reject(new Error('Canvas failed'));
+        URL.revokeObjectURL(url);
       };
       video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Video failed')); };
     } else reject(new Error('Unsupported file type'));
-  });
-}
-
-function fileToBase64Jpeg(file: File): Promise<string> {
-  return fileToDataUrl(file).then((dataUrl) => {
-    const base64 = dataUrl.split(',')[1];
-    if (!base64) throw new Error('Invalid data URL');
-    return base64;
   });
 }
 
