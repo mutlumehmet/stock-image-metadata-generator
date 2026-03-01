@@ -164,10 +164,15 @@ Focus on what buyers actually search for on Adobe Stock, Shutterstock, and iStoc
 Return ONLY valid JSON, nothing else:
 {{"title_en":"...","title_tr":"...","description_en":"...","description_tr":"..."}}
 
-Rules:
-- title: max 70 chars, commercial, SEO-optimized, specific
-- description: 150-200 chars, descriptive, includes mood/setting/use-case
-- Both Turkish and English must be natural, not literal translations"""
+Title (title_en / title_tr):
+- Use the "Who, What, Where, When" formula: one clear sentence (e.g. who is doing what, where, and when if relevant).
+- Ideal length: 5–10 words. No unnecessary embellishments.
+- Natural language: write a meaningful sentence, do NOT stack keywords. Algorithms rank human-like titles higher. Example: "Woman working on laptop in bright modern office" — NOT "Woman laptop office business".
+- Both EN and TR must read naturally.
+
+Description (description_en / description_tr):
+- Longer and more detailed than the title. Include mood, setting, lighting, use-cases, and context.
+- 150–200 characters. Must be DIFFERENT from the title; never copy or repeat the title verbatim."""
     raw = groq_vision(b64, prompt, key, 600)
     m = re.search(r'\{.*\}', raw, re.DOTALL)
     if m: return json.loads(m.group())
@@ -183,14 +188,20 @@ def api_keywords(b64, key, hint="", platform="general"):
 
     prompt = f"""You are a microstock SEO expert. Generate optimized English keywords for {platform_note}.{hint_txt}
 
-Analyze this image considering:
-- What buyers currently search for (2024-2025 trends)
-- Commercial use cases (advertising, editorial, web, print)
-- Specific and broad terms mix
-- Emotions, concepts, technical aspects
-- Location/demographic descriptors if visible
+First, interpret the image as a story in your mind only (who, what, why, when, where, concept). Do NOT output this story or any explanation—use it only internally to choose keywords.
 
-Return ONLY comma-separated keywords, nothing else. Generate exactly 50 keywords."""
+Then generate keywords that reflect this story: who/what first (specific subject), then category, then place/time, then concepts (why, inspiration). Put the 10 most story-critical terms first.
+
+Keyword rules (follow strictly):
+- Hierarchical order: Put the 10 most important keywords FIRST. Adobe Stock and Getty rank early positions higher; order by importance.
+- Specific to general order: (1) Specific subject (e.g. Golden Retriever), (2) Category (e.g. Dog, Pet), (3) Concepts (e.g. Loyalty, Friendship).
+- Use singular form only; do not add plural variants (e.g. "dog" not "dogs") to save the keyword limit.
+- Include conceptual tags that reflect the mood or message (e.g. Loneliness, Success, Sustainability); these are highly searched by agencies.
+- Only tag what is clearly visible and central to the image; do not add small background objects or elements that are not the main subject.
+
+Also consider: buyer trends (2024-2025), commercial use (advertising, editorial, web, print), emotions, technical aspects, location/demographics if visible.
+
+Output format (critical): Your response must be exactly one line of comma-separated keywords. No introductory phrase (e.g. no "Here are the keywords:"), no sentences, no bullet points, no story text. Example: wind turbine, power line, renewable energy, sustainability, outdoor, sunset. Generate exactly 50 keywords."""
     raw = groq_vision(b64, prompt, key, 450)
     kws = [k.strip() for k in re.sub(r'[\"\'\*\-\n\d\.]','',raw).split(",") if k.strip()]
     return kws[:50]
@@ -212,10 +223,24 @@ def api_translate_kw(kws, key):
 def api_everypixels(file_path, cid, csec):
     with open(file_path,"rb") as f:
         files={"data":(os.path.basename(file_path),f.read())}
-    r = requests.post("https://api.everypixel.com/v1/keywords",
+    r = requests.post("https://api.everypixel.com/v1/keywords?num_keywords=50&threshold=0.2",
                       files=files,auth=(cid,csec),timeout=30)
     r.raise_for_status()
     return [kw["keyword"] for kw in r.json().get("keywords",[])]
+
+def fill_keywords_to_max(existing, max_count, candidates):
+    """Append from candidates (no duplicates, case-insensitive) until length reaches max_count."""
+    seen = {k.strip().lower() for k in existing if k and k.strip()}
+    out = list(existing)
+    for k in candidates:
+        if len(out) >= max_count:
+            break
+        t = (k or "").strip()
+        if not t or t.lower() in seen:
+            continue
+        seen.add(t.lower())
+        out.append(t)
+    return out
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  UYGULAMA
@@ -811,6 +836,9 @@ class App(ctk.CTk):
                     base_kw = api_keywords(b64,key,hint,"adobe")
 
                 adobe_en = base_kw[:ADOBE_MAX]
+                if len(adobe_en) < ADOBE_MAX:
+                    groq_kw = api_keywords(b64, key, hint, "adobe")
+                    adobe_en = fill_keywords_to_max(adobe_en, ADOBE_MAX, groq_kw)
 
                 self._status("🔑  Shutterstock keywords üretiliyor...")
                 shutter_en = api_keywords(b64,key,hint,"shutterstock")[:SHUTTER_MAX]

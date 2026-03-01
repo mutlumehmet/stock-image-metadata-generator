@@ -59,19 +59,20 @@ export async function groqText(
   return (data?.choices?.[0]?.message?.content ?? '').trim();
 }
 
-const METADATA_PROMPT = `You are a professional stock photo metadata expert.
-Analyze this image and generate optimized metadata for microstock platforms.
+const METADATA_PROMPT = `You are a professional stock photo metadata expert. Analyze this image for Adobe Stock, Shutterstock, iStock.
 
 Consider: current market trends, buyer search behavior, commercial appeal, and SEO best practices.
 Focus on what buyers actually search for on Adobe Stock, Shutterstock, and iStock.
 
-Return ONLY valid JSON, nothing else:
-{"title_en":"...","title_tr":"...","description_en":"...","description_tr":"..."}
+Title (title_en / title_tr):
+- Use the "Who, What, Where, When" formula: one clear sentence (e.g. who is doing what, where, and when if relevant).
+- Ideal length: 5–10 words. No unnecessary embellishments.
+- Natural language: write a meaningful sentence, do NOT stack keywords. Algorithms rank human-like titles higher. Example: "Woman working on laptop in bright modern office" — NOT "Woman laptop office business".
+- Both EN and TR must read naturally.
 
-Rules:
-- title: max 70 chars, commercial, SEO-optimized, specific
-- description: 150-200 chars, descriptive, includes mood/setting/use-case
-- Both Turkish and English must be natural, not literal translations`;
+Description (description_en / description_tr):
+- Longer and more detailed than the title. Include mood, setting, lighting, use-cases, and context.
+- 150–200 characters. Must be DIFFERENT from the title; never copy or repeat the title verbatim.`;
 
 /** Extract the first complete JSON object from a string (handles trailing text or multiple objects). */
 function extractFirstJsonObject(raw: string): string {
@@ -114,14 +115,20 @@ const KEYWORDS_BY_PLATFORM: Record<string, string> = {
 
 const KEYWORDS_PROMPT = `You are a microstock SEO expert. Generate optimized English keywords for {platform}.{hint}
 
-Analyze this image considering:
-- What buyers currently search for (2024-2025 trends)
-- Commercial use cases (advertising, editorial, web, print)
-- Specific and broad terms mix
-- Emotions, concepts, technical aspects
-- Location/demographic descriptors if visible
+First, interpret the image as a story in your mind only (who, what, why, when, where, concept). Do NOT output this story or any explanation—use it only internally to choose keywords.
 
-Return ONLY comma-separated keywords, nothing else. Generate exactly 50 keywords.`;
+Then generate keywords that reflect this story: who/what first (specific subject), then category, then place/time, then concepts (why, inspiration). Put the 10 most story-critical terms first.
+
+Keyword rules (follow strictly):
+- Hierarchical order: Put the 10 most important keywords FIRST. Adobe Stock and Getty rank early positions higher; order by importance.
+- Specific to general order: (1) Specific subject (e.g. Golden Retriever), (2) Category (e.g. Dog, Pet), (3) Concepts (e.g. Loyalty, Friendship).
+- Use singular form only; do not add plural variants (e.g. "dog" not "dogs") to save the keyword limit.
+- Include conceptual tags that reflect the mood or message (e.g. Loneliness, Success, Sustainability); these are highly searched by agencies.
+- Only tag what is clearly visible and central to the image; do not add small background objects or elements that are not the main subject.
+
+Also consider: buyer trends (2024-2025), commercial use (advertising, editorial, web, print), emotions, technical aspects, location/demographics if visible.
+
+Output format (critical): Your response must be exactly one line of comma-separated keywords. No introductory phrase (e.g. no "Here are the keywords:"), no sentences, no bullet points, no story text. Example: wind turbine, power line, renewable energy, sustainability, outdoor, sunset. Generate exactly 50 keywords.`;
 
 export async function apiKeywords(
   b64: string,
